@@ -10,7 +10,8 @@
     submitted: {},
     flagged: {},
     reviewUnlocked: false,
-    restored: false
+    restored: false,
+    navFilter: "all"
   };
 
   const $ = (id) => document.getElementById(id);
@@ -352,6 +353,7 @@
           submitted: state.submitted,
           flagged: state.flagged,
           reviewUnlocked: state.reviewUnlocked,
+          navFilter: state.navFilter,
           questionIds: state.questions.map((question) => question.id),
           theme: document.body.classList.contains("dark") ? "dark" : "light"
         };
@@ -402,6 +404,7 @@
       state.submitted = snapshot.submitted || {};
       state.flagged = snapshot.flagged || {};
       state.reviewUnlocked = Boolean(snapshot.reviewUnlocked);
+      state.navFilter = snapshot.navFilter || "all";
       state.restored = true;
 
       return true;
@@ -469,6 +472,23 @@
         .map((label) => (question.choices.find((choice) => choice.label === label) || {}).text)
         .filter(Boolean)
         .join(", ");
+    },
+    matchesNavFilter(question, index, filter) {
+      switch (filter) {
+        case "correct":
+          return data.hasAnswer(index, question) && ui.showReview(question, index) && data.isCorrect(question, index);
+        case "incorrect":
+          return data.hasAnswer(index, question) && ui.showReview(question, index) && !data.isCorrect(question, index);
+        case "skipped":
+          return !data.hasAnswer(index, question);
+        case "flagged":
+          return Boolean(state.flagged[index]);
+        default:
+          return true;
+      }
+    },
+    filterCount(filter) {
+      return state.questions.filter((question, index) => data.matchesNavFilter(question, index, filter)).length;
     }
   };
 
@@ -497,7 +517,33 @@
       return data.mode() === "practice" && data.isSubmitted(index);
     },
     renderNav() {
-      $("navgrid").innerHTML = state.questions.map((question, index) => {
+      const filters = [
+        { key: "all", label: "All" },
+        { key: "incorrect", label: "Incorrect" },
+        { key: "skipped", label: "Skipped" },
+        { key: "flagged", label: "Flagged" },
+        { key: "correct", label: "Correct" }
+      ];
+      const visibleItems = state.questions
+        .map((question, index) => ({ question, index }))
+        .filter(({ question, index }) => data.matchesNavFilter(question, index, state.navFilter));
+
+      $("navwrap").innerHTML = `
+        <div class="nav-filters">
+          ${filters.map((filter) => `
+            <button
+              type="button"
+              class="filter-chip ${state.navFilter === filter.key ? "active" : ""}"
+              onclick="QuizActions.setNavFilter('${filter.key}')"
+            >
+              ${filter.label} <span>${data.filterCount(filter.key)}</span>
+            </button>
+          `).join("")}
+        </div>
+        <div class="navgrid" id="navgrid"></div>
+      `;
+
+      $("navgrid").innerHTML = visibleItems.map(({ question, index }) => {
         const classes = ["qnav"];
         if (data.hasAnswer(index, question)) {
           if (ui.showReview(question, index)) {
@@ -509,7 +555,7 @@
         if (state.flagged[index]) classes.push("flagged");
         if (index === state.current) classes.push("current");
         return `<button type="button" class="${classes.join(" ")}" onclick="QuizActions.go(${index})">${index + 1}</button>`;
-      }).join("");
+      }).join("") || '<div class="nav-empty">No questions match this filter.</div>';
 
       const answeredCount = state.questions.filter((question, index) => data.hasAnswer(index, question)).length;
       const flaggedCount = Object.keys(state.flagged).filter((key) => state.flagged[key]).length;
@@ -520,6 +566,7 @@
         `<strong>Answered:</strong> ${answeredCount} / ${state.questions.length}<br>` +
         `<strong>Flagged:</strong> ${flaggedCount}<br>` +
         `<strong>Source issues:</strong> ${sourceIssueCount}<br>` +
+        `<strong>Filter:</strong> ${state.navFilter}<br>` +
         `<strong>Resume:</strong> ${state.restored ? "Restored" : "Live session"}`;
     },
     renderChoices(question, reveal) {
@@ -740,6 +787,7 @@
       state.flagged = {};
       state.reviewUnlocked = false;
       state.restored = false;
+      state.navFilter = "all";
       ui.syncModeBadge();
       storage.save();
       ui.renderQuestion();
@@ -823,6 +871,11 @@
       state.current = Number(firstFlagged);
       storage.save();
       ui.renderQuestion();
+    },
+    setNavFilter(filter) {
+      state.navFilter = filter || "all";
+      storage.save();
+      ui.renderNav();
     },
     toggleTheme() {
       document.body.classList.toggle("dark");

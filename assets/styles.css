@@ -482,10 +482,40 @@ body.dark .warn-inline {
   margin-top: 16px;
 }
 
+.nav-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.filter-chip {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--sidebar-ink);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px 10px;
+  font-size: 0.78rem;
+}
+
+.filter-chip span {
+  opacity: 0.78;
+}
+
+.filter-chip.active {
+  background: rgba(132, 164, 255, 0.22);
+  border-color: rgba(147, 197, 253, 0.5);
+}
+
 .navgrid {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.nav-empty {
+  color: #c8d5ea;
+  font-size: 0.88rem;
+  padding: 10px 0;
 }
 
 .qnav {
