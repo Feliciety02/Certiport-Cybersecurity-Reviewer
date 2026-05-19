@@ -158,6 +158,15 @@ input {
   margin-top: 14px;
 }
 
+.mobile-sidebar-toggle {
+  display: none;
+  width: 100%;
+  margin-top: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--sidebar-ink);
+}
+
 button {
   border: 0;
   border-radius: 12px;
@@ -585,12 +594,17 @@ body.dark .warn-inline {
   }
 
   .sidebar {
-    position: relative;
+    position: sticky;
+    top: 0;
     height: auto;
+    z-index: 5;
+    padding: 14px 14px 12px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .main {
-    padding: 16px;
+    padding: 14px;
   }
 
   .hero-top,
@@ -613,5 +627,106 @@ body.dark .warn-inline {
   .toolbar-compact,
   .toolbar-primary {
     justify-content: stretch;
+  }
+
+  .brand-block h1 {
+    font-size: 1.55rem;
+  }
+
+  .lede {
+    font-size: 0.9rem;
+  }
+
+  .pill-row {
+    gap: 6px;
+  }
+
+  .mobile-sidebar-toggle {
+    display: block;
+  }
+
+  .control-panel,
+  .stats,
+  .nav-wrap {
+    margin-top: 12px;
+  }
+
+  body.mobile-sidebar-collapsed .control-panel,
+  body.mobile-sidebar-collapsed .stats,
+  body.mobile-sidebar-collapsed .nav-wrap {
+    display: none;
+  }
+
+  .nav-filters {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+  }
+
+  .filter-chip {
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  .navgrid {
+    max-height: 42vh;
+    overflow: auto;
+    padding-right: 2px;
+  }
+
+  .question-host {
+    padding: 16px;
+  }
+
+  .qtitle {
+    font-size: 1.12rem;
+  }
+
+  .exam-shell-head,
+  .question-topbar {
+    gap: 10px;
+  }
+
+  .choice,
+  .match-row,
+  .answerline,
+  .explain,
+  .source-issue-box {
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 560px) {
+  .sidebar {
+    padding: 12px 12px 10px;
+  }
+
+  .main {
+    padding: 12px;
+  }
+
+  .hero,
+  .question-host,
+  .control-panel,
+  .stats {
+    border-radius: 14px;
+  }
+
+  .hero {
+    padding: 16px;
+  }
+
+  .footer-row .toolbar,
+  .toolbar-primary {
+    width: 100%;
+  }
+
+  .footer-row .toolbar button,
+  .toolbar-primary button {
+    flex: 1 1 100%;
+  }
+
+  .choice {
+    padding: 12px;
   }
 }

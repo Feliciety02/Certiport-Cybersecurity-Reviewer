@@ -499,6 +499,7 @@
         .map((category) => `<option value="${esc(category)}">${esc(category)}</option>`)
         .join("");
       this.syncModeBadge();
+      this.syncMobileSidebar();
     },
     syncModeBadge() {
       const map = {
@@ -507,6 +508,13 @@
         review: "Review Mode"
       };
       $("modeBadge").textContent = map[data.mode()] || "Practice Mode";
+    },
+    syncMobileSidebar() {
+      const toggle = $("mobileSidebarToggle");
+      if (!toggle) return;
+      const collapsed = document.body.classList.contains("mobile-sidebar-collapsed");
+      toggle.textContent = collapsed ? "Show Exam Panel" : "Hide Exam Panel";
+      toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
     },
     showReview(question, index) {
       if (data.mode() === "review" || state.reviewUnlocked) return true;
@@ -877,6 +885,10 @@
       storage.save();
       ui.renderNav();
     },
+    toggleMobileSidebar() {
+      document.body.classList.toggle("mobile-sidebar-collapsed");
+      ui.syncMobileSidebar();
+    },
     toggleTheme() {
       document.body.classList.toggle("dark");
       storage.save();
@@ -885,6 +897,14 @@
       ui.syncModeBadge();
       storage.save();
       if (state.questions.length) ui.renderQuestion();
+    },
+    handleResize() {
+      if (window.innerWidth > 920) {
+        document.body.classList.remove("mobile-sidebar-collapsed");
+      } else if (!state.questions.length && !document.body.classList.contains("mobile-sidebar-collapsed")) {
+        document.body.classList.add("mobile-sidebar-collapsed");
+      }
+      ui.syncMobileSidebar();
     }
   };
 
@@ -893,10 +913,14 @@
   $("startBtn").addEventListener("click", actions.start);
   $("toggleTheme").addEventListener("click", actions.toggleTheme);
   $("mode").addEventListener("change", actions.handleModeChange);
+  $("mobileSidebarToggle").addEventListener("click", actions.toggleMobileSidebar);
+  window.addEventListener("resize", actions.handleResize);
 
   ui.init();
+  actions.handleResize();
   if (storage.restore()) {
     ui.syncModeBadge();
+    ui.syncMobileSidebar();
     ui.renderQuestion();
   }
 })();
