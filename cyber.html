@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ITS Cybersecurity Certiport Mock Exam</title>
+<link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand-block">
+      <p class="eyebrow">Certiport Mockup Exam</p>
+      <h1>ITS Cybersecurity</h1>
+      <p class="lede">Practice, exam, and review modes with source explanations preserved from the reviewer bank.</p>
+      <div class="pill-row">
+        <span class="pill" id="countPill">0 Questions</span>
+        <span class="pill">Certiport Style</span>
+        <span class="pill">Source Explanations</span>
+      </div>
+    </div>
+
+    <section class="control-panel card">
+      <label for="mode">Mode</label>
+      <select id="mode">
+        <option value="practice">Practice Mode - submit and review each item</option>
+        <option value="exam">Exam Mode - review at the end</option>
+        <option value="review">Review Mode - show answers and explanations</option>
+      </select>
+
+      <label for="setSize">Question Set</label>
+      <select id="setSize">
+        <option value="50">50-question mock</option>
+        <option value="75">75-question mock</option>
+        <option value="100">100-question mock</option>
+        <option value="all">Full reviewer bank</option>
+      </select>
+
+      <label for="category">Category</label>
+      <select id="category">
+        <option value="all">All categories</option>
+      </select>
+
+      <div class="button-stack">
+        <button id="startBtn" type="button">Start / Restart</button>
+        <button id="toggleTheme" class="ghost" type="button">Night Mode</button>
+      </div>
+    </section>
+
+    <section class="stats card">
+      <div id="sideStats" class="small">No mock exam running.</div>
+    </section>
+
+    <section class="nav-wrap">
+      <div class="navgrid" id="navgrid"></div>
+    </section>
+  </aside>
+
+  <main class="main">
+    <section class="hero card">
+      <div class="hero-top">
+        <div>
+          <p class="eyebrow">Candidate Workspace</p>
+          <h2>ITS Cybersecurity Mock Exam</h2>
+          <p class="small">Select a mode, build a question set, and work through the reviewer in a Certiport-style layout.</p>
+        </div>
+        <div class="hero-meta">
+          <span class="status-chip" id="modeBadge">Practice Mode</span>
+          <span class="small" id="counter">Not started</span>
+        </div>
+      </div>
+      <div class="progress" aria-hidden="true">
+        <div class="bar" id="bar"></div>
+      </div>
+    </section>
+
+    <section id="questionArea" class="card question-host">
+      <strong>Click Start / Restart to begin.</strong>
+    </section>
+  </main>
+</div>
+
+<script src="data/questions.js"></script>
+<script src="data/question-overrides.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "cybersecurity-reviewer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Modular ITS Cybersecurity Certiport-style mock exam with a local server.",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
