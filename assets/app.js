@@ -489,6 +489,21 @@
     },
     filterCount(filter) {
       return state.questions.filter((question, index) => data.matchesNavFilter(question, index, filter)).length;
+    },
+    activeQuestion() {
+      return state.questions[state.current];
+    },
+    canUseShortcuts() {
+      const active = document.activeElement;
+      if (!active) return true;
+      const tag = active.tagName;
+      return !(
+        active.isContentEditable ||
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        tag === "BUTTON"
+      );
     }
   };
 
@@ -575,7 +590,8 @@
         `<strong>Flagged:</strong> ${flaggedCount}<br>` +
         `<strong>Source issues:</strong> ${sourceIssueCount}<br>` +
         `<strong>Filter:</strong> ${state.navFilter}<br>` +
-        `<strong>Resume:</strong> ${state.restored ? "Restored" : "Live session"}`;
+        `<strong>Resume:</strong> ${state.restored ? "Restored" : "Live session"}<br>` +
+        `<strong>Keys:</strong> 1-5 choose, N next, P previous, F flag, Enter submit`;
     },
     renderChoices(question, reveal) {
       const saved = state.answers[state.current] || [];
@@ -905,6 +921,46 @@
         document.body.classList.add("mobile-sidebar-collapsed");
       }
       ui.syncMobileSidebar();
+    },
+    handleKeydown(event) {
+      if (!state.questions.length || !data.canUseShortcuts()) return;
+
+      const question = data.activeQuestion();
+      if (!question) return;
+
+      const key = String(event.key || "").toLowerCase();
+
+      if (key >= "1" && key <= "5" && !question.matching) {
+        const index = Number(key) - 1;
+        const choice = question.choices[index];
+        if (!choice || ui.inputsLocked(question, state.current)) return;
+        event.preventDefault();
+        actions.setChoice(choice.label, question.multi);
+        return;
+      }
+
+      if (key === "n") {
+        event.preventDefault();
+        actions.next();
+        return;
+      }
+
+      if (key === "p") {
+        event.preventDefault();
+        actions.prev();
+        return;
+      }
+
+      if (key === "f") {
+        event.preventDefault();
+        actions.toggleFlag();
+        return;
+      }
+
+      if (key === "enter" && data.mode() !== "practice" && !state.reviewUnlocked && data.hasAnswer(state.current, question)) {
+        event.preventDefault();
+        actions.submitAnswer();
+      }
     }
   };
 
@@ -915,6 +971,7 @@
   $("mode").addEventListener("change", actions.handleModeChange);
   $("mobileSidebarToggle").addEventListener("click", actions.toggleMobileSidebar);
   window.addEventListener("resize", actions.handleResize);
+  window.addEventListener("keydown", actions.handleKeydown);
 
   ui.init();
   actions.handleResize();
