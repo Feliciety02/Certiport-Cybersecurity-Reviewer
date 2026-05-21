@@ -1,7 +1,7 @@
 (function () {
   const RAW_QUESTIONS = Array.isArray(window.CYBER_QUESTIONS) ? window.CYBER_QUESTIONS : [];
   const QUESTION_OVERRIDES = window.CYBER_QUESTION_OVERRIDES || {};
-  const STORAGE_KEY = "its-cybersecurity-mock-state-v1";
+  const STORAGE_KEY = "its-cybersecurity-mock-state-v2";
 
   const state = {
     questions: [],
@@ -11,7 +11,8 @@
     flagged: {},
     reviewUnlocked: false,
     restored: false,
-    navFilter: "all"
+    navFilter: "all",
+    searchTerm: ""
   };
 
   const $ = (id) => document.getElementById(id);
@@ -354,6 +355,7 @@
           flagged: state.flagged,
           reviewUnlocked: state.reviewUnlocked,
           navFilter: state.navFilter,
+          searchTerm: state.searchTerm,
           questionIds: state.questions.map((question) => question.id),
           theme: document.body.classList.contains("dark") ? "dark" : "light"
         };
@@ -405,6 +407,7 @@
       state.flagged = snapshot.flagged || {};
       state.reviewUnlocked = Boolean(snapshot.reviewUnlocked);
       state.navFilter = snapshot.navFilter || "all";
+      state.searchTerm = snapshot.searchTerm || "";
       state.restored = true;
 
       return true;
@@ -463,6 +466,55 @@
     score() {
       return state.questions.reduce((total, question, index) => total + (data.isCorrect(question, index) ? 1 : 0), 0);
     },
+    outcomeCounts() {
+      return state.questions.reduce((totals, question, index) => {
+        if (!data.hasAnswer(index, question)) {
+          totals.skipped += 1;
+        } else if (data.isCorrect(question, index)) {
+          totals.correct += 1;
+        } else {
+          totals.incorrect += 1;
+        }
+        return totals;
+      }, { correct: 0, incorrect: 0, skipped: 0 });
+    },
+    categoryBreakdown() {
+      const grouped = new Map();
+
+      state.questions.forEach((question, index) => {
+        const key = question.category || "Uncategorized";
+        if (!grouped.has(key)) {
+          grouped.set(key, {
+            category: key,
+            total: 0,
+            correct: 0,
+            incorrect: 0,
+            skipped: 0
+          });
+        }
+
+        const bucket = grouped.get(key);
+        bucket.total += 1;
+
+        if (!data.hasAnswer(index, question)) {
+          bucket.skipped += 1;
+        } else if (data.isCorrect(question, index)) {
+          bucket.correct += 1;
+        } else {
+          bucket.incorrect += 1;
+        }
+      });
+
+      return [...grouped.values()]
+        .map((bucket) => ({
+          ...bucket,
+          percent: bucket.total ? Math.round((bucket.correct / bucket.total) * 100) : 0
+        }))
+        .sort((a, b) => {
+          if (a.percent !== b.percent) return a.percent - b.percent;
+          return a.category.localeCompare(b.category);
+        });
+    },
     answerText(question) {
       if (question.matching) {
         return question.pairs.map((pair) => `${pair.left} -> ${pair.right}`).join("; ");
@@ -488,7 +540,29 @@
       }
     },
     filterCount(filter) {
-      return state.questions.filter((question, index) => data.matchesNavFilter(question, index, filter)).length;
+      return state.questions.filter((question, index) => data.matchesQuestionSearch(question) && data.matchesNavFilter(question, index, filter)).length;
+    },
+    matchesQuestionSearch(question) {
+      const term = normalizedKeyPart(state.searchTerm);
+      if (!term) return true;
+
+      const haystack = [
+        question.id,
+        question.type,
+        question.category,
+        question.question,
+        question.prompt,
+        question.answer,
+        question.explanation,
+        data.answerText(question),
+        ...(question.choices || []).map((choice) => choice.text),
+        ...(question.pairs || []).flatMap((pair) => [pair.left, pair.right])
+      ]
+        .map((value) => normalizedKeyPart(value))
+        .filter(Boolean)
+        .join(" ");
+
+      return haystack.includes(term);
     },
     activeQuestion() {
       return state.questions[state.current];
@@ -513,6 +587,7 @@
       $("category").innerHTML = '<option value="all">All categories</option>' + data.categories()
         .map((category) => `<option value="${esc(category)}">${esc(category)}</option>`)
         .join("");
+      if ($("questionSearch")) $("questionSearch").value = state.searchTerm;
       this.syncModeBadge();
       this.syncMobileSidebar();
     },
@@ -533,11 +608,11 @@
     },
     showReview(question, index) {
       if (data.mode() === "review" || state.reviewUnlocked) return true;
-      return data.mode() === "practice" && data.isSubmitted(index) && data.hasAnswer(index, question);
+      return data.isSubmitted(index) && data.hasAnswer(index, question);
     },
     inputsLocked(question, index) {
       if (data.mode() === "review" || state.reviewUnlocked) return true;
-      return data.mode() === "practice" && data.isSubmitted(index);
+      return data.isSubmitted(index);
     },
     renderNav() {
       const filters = [
@@ -549,7 +624,7 @@
       ];
       const visibleItems = state.questions
         .map((question, index) => ({ question, index }))
-        .filter(({ question, index }) => data.matchesNavFilter(question, index, state.navFilter));
+        .filter(({ question, index }) => data.matchesQuestionSearch(question) && data.matchesNavFilter(question, index, state.navFilter));
 
       $("navwrap").innerHTML = `
         <div class="nav-filters">
@@ -580,18 +655,6 @@
         return `<button type="button" class="${classes.join(" ")}" onclick="QuizActions.go(${index})">${index + 1}</button>`;
       }).join("") || '<div class="nav-empty">No questions match this filter.</div>';
 
-      const answeredCount = state.questions.filter((question, index) => data.hasAnswer(index, question)).length;
-      const flaggedCount = Object.keys(state.flagged).filter((key) => state.flagged[key]).length;
-      const sourceIssueCount = state.questions.filter((question) => Array.isArray(question.sourceIssues) && question.sourceIssues.length).length;
-
-      $("sideStats").innerHTML =
-        `<strong>Current set:</strong> ${state.questions.length} items<br>` +
-        `<strong>Answered:</strong> ${answeredCount} / ${state.questions.length}<br>` +
-        `<strong>Flagged:</strong> ${flaggedCount}<br>` +
-        `<strong>Source issues:</strong> ${sourceIssueCount}<br>` +
-        `<strong>Filter:</strong> ${state.navFilter}<br>` +
-        `<strong>Resume:</strong> ${state.restored ? "Restored" : "Live session"}<br>` +
-        `<strong>Keys:</strong> 1-5 choose, N next, P previous, F flag, Enter submit`;
     },
     renderChoices(question, reveal) {
       const saved = state.answers[state.current] || [];
@@ -654,7 +717,7 @@
                       <option value="">Choose answer</option>
                       ${options.map((option) => `<option value="${esc(option)}" ${value === option ? "selected" : ""}>${displayText(option)}</option>`).join("")}
                     </select>
-                    ${reveal && value !== pair.right ? `<div class="small ok">Correct: ${displayText(pair.right)}</div>` : ""}
+                    ${reveal ? `<div class="small ok">Correct: ${displayText(pair.right)}</div>` : ""}
                   </div>
                 </div>
               `;
@@ -666,16 +729,6 @@
     feedbackBlock(question) {
       const correct = data.isCorrect(question, state.current);
       const explanation = question.explanation || "No explanation was stored for this item.";
-      const issueBlock = question.sourceIssues && question.sourceIssues.length
-        ? `
-        <div class="source-issue-box">
-          <strong>Source issue${question.sourceIssues.length > 1 ? "s" : ""}:</strong>
-          <ul class="issue-list">
-            ${question.sourceIssues.map((issue) => `<li>${esc(issue)}</li>`).join("")}
-          </ul>
-        </div>
-      `
-        : "";
       return `
         <div class="answerline">
           <span class="result ${correct ? "ok" : "no"}">${correct ? "Correct" : "Incorrect"}</span>
@@ -685,7 +738,6 @@
           <strong>Explanation:</strong>
           <div>${esc(explanation)}</div>
         </div>
-        ${issueBlock}
       `;
     },
     utilityActions(question) {
@@ -713,7 +765,6 @@
             <button type="button" class="secondary" onclick="QuizActions.next()" ${state.current === state.questions.length - 1 ? "disabled" : ""}>Next</button>
           </div>
           <div class="toolbar toolbar-primary">
-            ${data.mode() !== "practice" && !state.reviewUnlocked ? `<button type="button" onclick="QuizActions.submitAnswer()" ${!hasAnswer ? "disabled" : ""}>Submit Answer</button>` : ""}
             <button type="button" class="danger" onclick="QuizActions.finish()">${finishLabel}</button>
           </div>
         </div>
@@ -739,7 +790,6 @@
           <span class="tag">${displayText(question.type)}</span>
           <span class="tag">${displayText(question.category)}</span>
           <span class="tag">Source #${question.id}</span>
-          ${question.sourceIssues && question.sourceIssues.length ? `<span class="tag tag-issue">Source issue${question.sourceIssues.length > 1 ? "s" : ""}</span>` : ""}
           ${state.restored ? '<span class="tag tag-resume">Resumed</span>' : ""}
           ${state.flagged[state.current] ? '<span class="tag">Flagged</span>' : ""}
         </div>
@@ -760,6 +810,9 @@
       const answered = state.questions.filter((question, index) => data.hasAnswer(index, question)).length;
       const flagged = Object.keys(state.flagged).filter((key) => state.flagged[key]).length;
       const percent = total ? Math.round((correct / total) * 100) : 0;
+      const outcomes = data.outcomeCounts();
+      const categoryBreakdown = data.categoryBreakdown();
+      const toughest = categoryBreakdown[0];
 
       $("counter").textContent = `Results: ${correct} / ${total}`;
       $("bar").style.width = "100%";
@@ -784,6 +837,44 @@
             <div class="small">Answered items</div>
           </div>
         </div>
+        <div class="summary-grid summary-grid-four">
+          <div class="summary-card">
+            <strong>${outcomes.correct}</strong>
+            <div class="small">Correct</div>
+          </div>
+          <div class="summary-card">
+            <strong>${outcomes.incorrect}</strong>
+            <div class="small">Incorrect</div>
+          </div>
+          <div class="summary-card">
+            <strong>${outcomes.skipped}</strong>
+            <div class="small">Skipped</div>
+          </div>
+          <div class="summary-card">
+            <strong>${toughest ? `${toughest.category} (${toughest.percent}%)` : "N/A"}</strong>
+            <div class="small">Toughest category</div>
+          </div>
+        </div>
+        <div class="analytics-block">
+          <div class="analytics-head">
+            <strong>Category Performance</strong>
+            <span class="small">Sorted from weakest to strongest</span>
+          </div>
+          <div class="analytics-table">
+            ${categoryBreakdown.map((bucket) => `
+              <div class="analytics-row">
+                <div>
+                  <strong>${esc(bucket.category)}</strong>
+                  <div class="small">${bucket.correct} correct, ${bucket.incorrect} incorrect, ${bucket.skipped} skipped</div>
+                </div>
+                <div class="analytics-score">
+                  <strong>${bucket.percent}%</strong>
+                  <span class="small">${bucket.correct}/${bucket.total}</span>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
         <p class="small">Review is now unlocked. Each question will show the stored answer and the source explanation text from the reviewer bank.</p>
         <div class="toolbar">
           <button type="button" onclick="QuizActions.startReview()">Start Review</button>
@@ -797,7 +888,7 @@
 
   const actions = {
     autoSubmitIfReady(question, index) {
-      if (data.mode() !== "practice" || state.reviewUnlocked) return false;
+      if (state.reviewUnlocked) return false;
       if (!data.isComplete(question, index)) return false;
       state.submitted[index] = true;
       storage.save();
@@ -812,6 +903,7 @@
       state.reviewUnlocked = false;
       state.restored = false;
       state.navFilter = "all";
+      state.searchTerm = "";
       ui.syncModeBadge();
       storage.save();
       ui.renderQuestion();
@@ -901,6 +993,11 @@
       storage.save();
       ui.renderNav();
     },
+    setSearchTerm(value) {
+      state.searchTerm = normalizeText(value);
+      storage.save();
+      ui.renderNav();
+    },
     toggleMobileSidebar() {
       document.body.classList.toggle("mobile-sidebar-collapsed");
       ui.syncMobileSidebar();
@@ -957,10 +1054,6 @@
         return;
       }
 
-      if (key === "enter" && data.mode() !== "practice" && !state.reviewUnlocked && data.hasAnswer(state.current, question)) {
-        event.preventDefault();
-        actions.submitAnswer();
-      }
     }
   };
 
@@ -969,6 +1062,7 @@
   $("startBtn").addEventListener("click", actions.start);
   $("toggleTheme").addEventListener("click", actions.toggleTheme);
   $("mode").addEventListener("change", actions.handleModeChange);
+  $("questionSearch").addEventListener("input", (event) => actions.setSearchTerm(event.target.value));
   $("mobileSidebarToggle").addEventListener("click", actions.toggleMobileSidebar);
   window.addEventListener("resize", actions.handleResize);
   window.addEventListener("keydown", actions.handleKeydown);
